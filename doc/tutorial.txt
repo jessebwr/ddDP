@@ -1,0 +1,189 @@
+Author: Jesse Berlin Watts-Russell and David Scott
+Date: March 3, 2014
+Distributed Systems, Homework 4
+
+Yo. So wassup. We gonna go through this likeaboss.
+
+Basically, I HIGHLY RECOMMEND YOU START EACH NODE INDIVIDUALLY IN ITS OWN SHELL
+WINDOW NOT OVER SSH, BECAUSE IT IS MUCH MUCH MUCH EASIER TO SEE WHAT IS GOING
+ON AT EACH NODE WITH ITS OWN INDIVIDUAL SHELL.
+
+###############################################################################
+#                            Using the Philsopher                             #
+###############################################################################
+
+Seriously. Open shells. Seeing messages from every single philosopher on one
+shell will NOT be appealing.
+
+Anyways, the directory structure is set up like an erlang OTP project, but
+obviously without supervisors and all that stuff because we don't wanna restart
+nodes and stuff.
+    
+    DynamicDiningPhilosophers
+        doc -- where you are now reading my stuff.
+        ebin -- where compiled beam files go.
+        src -- where my .erl files go
+        Makefile -- makes stuff
+
+So yea extract this folder and put it somewhere on all the computers you will
+be testing on. Then cd into the DynamicDiningPhilosophers, call make, and then
+cd into the ebin directory from there.
+
+Now, as the project specifies, we run our philosopher like this:
+
+    erl -noshell -run philosopher main <name> <all other nodes to connect to>
+
+    2014-03-08 22:45:17.370341: Initializing The Philosopher p1@godswood.
+    2014-03-08 22:45:17.384995: [NODE: p1@godswood, STATE: joining] Trying to 
+    connect to all specified nodes.
+        .
+        .    
+        .
+
+        IMO i think our notifications are pretty great.
+
+Of course, now WITH YOUR MULTIPLE SHELLS, you can create some setup of 
+philosophers to talk to eachother and stuff.
+
+    erl -noshell -run philosopher main p2 p1@godswood
+
+    2014-03-08 23:05:48.486134: Initializing The Philosopher p2@clover.
+    2014-03-08 23:05:48.504465: [NODE: p2@clover, STATE: joining] Trying to 
+    connect to all specified nodes.
+    2014-03-08 23:05:48.508886: [NODE: p2@clover, STATE: joining] Sending 
+    requests to specified nodes.
+    2014-03-08 23:05:48.545238: [NODE: p2@clover, STATE: joining] Received 
+    edge confirmation from p1@godswood.
+    2014-03-08 23:05:48.551394: [NODE: p2@clover, STATE: joining] Received all
+    edge confirmations, transitioning to thinking.
+
+But remember, we can also dynamically add nodes after some of these
+philosophers have transitioned to hungry/eating/etc. So let's see how to change
+their states.
+
+
+###############################################################################
+#                            Using the Controller                             #
+###############################################################################
+
+Now this guy. This guy is the boss. He will make it easy for you to mess around
+with your philosophers with constant feedback. You can choose to initialize him
+on just one computer to control everybody, or have multiple on different nodes
+that get notifications back for whatever commands they send out.
+
+To get to him, make, and then cd into the ebin directory and run
+
+    % erl
+    Eshell V5.10.4  (abort with ^G)
+    1> controller:start().
+    (J8KwY7ksxD@clover)2>
+
+Notice how I give it a random name so you can run multiple on the same
+computer. THIS IS IN AN ERLANG SHELL.
+
+Now for the functions. We have several here.
+
+    %%%% MANAGEMENT FUNCTIONS %%%%
+
+        become_hungry(Node) -- this tells a philosopher to become hungry
+        stop_eating(Node) -- this tells a philosopher to stop eating
+        leave(Node) -- this tells a philosopher to leave the table
+
+
+        Note:
+        Messages for transitioning to eating and transitioning to gone
+        are sent from the philosopher back to the controller. These
+        messages are picked up nicely and formatted.
+
+    %%%%% CHECKUP FUNCTIONS %%%%%
+
+        get_state(Node) -- find out what state Node is in
+
+            (J8KwY7ksxD@clover)3> controller:get_state(p1@godswood).
+            thinking
+
+        get_neighbors(Node) -- find out who Node shares forks with
+
+            (J8KwY7ksxD@clover)4> controller:get_neighbors(p1@godswood).
+            [p2@clover]
+
+        list_forks(Node) -- list of edge forks (denoted by the neighbor at the
+                            other end of the edge) that Node currently has.
+
+            (J8KwY7ksxD@clover)3> controller:list_forks(p1@godswood).
+            []
+
+
+NOTE: THE CONTROLLER CAN BE USED FOR EASILY TESTING OTHER PEOPLEZ STUFF TOO,
+AND ALL THE FUNCTIONS WILL WORK...
+
+besides get_state, get_neighbors, and list_forks because that relies on our
+generic server implementation.
+
+
+###############################################################################
+#                    The Dark Side (of the dining table)                      #
+###############################################################################
+
+I mean. In all honesty. Just don't use these guys too much. It's not cool.
+
+  %%% Controller Without the Controller %%%
+
+    Make an erlang node shell (you need to give it a name to actually start
+    the empd daemon thing). And make a Pid for yourself.
+
+    % erl -sname derp
+    Eshell V5.10.4  (abort with ^G)
+    (derp@phlox)1> Pid = self().
+    (derp@phlox)2>
+
+    Now, we can send requests to our philosophers just using normal erlang
+    message passing (this is totally not as cool)
+
+    (derp@phlox)2> {philosopher, SomeNode} ! {Pid, SomeRef0, become_hungry}.
+    ok
+    (derp@phlox)3> {philosopher, SomeNode} ! {Pid, SomeRef1, stop_eating}.
+    ok
+    (derp@phlox)4> {philosopher, SomeNode} ! {Pid, SomeRef2, leave}.
+    ok
+
+    And obviously this doesnt format the return messages so you'll just have
+    to flush() to see what's been sent back.
+
+
+
+
+  %%% Running Philosophers All From the Same Shell %%%
+
+    Wow. Seriously. I said not to do this and you are doing this!?!?!?
+    Anyways, in order to make sure your process doesn't get suspended here
+    is a way to run a philosopher over ssh from another computer (and by
+    extension, you can start all your philosophers from just this one
+    computer).
+
+
+    tail -f /dev/null | ssh <Node> "cd <EBIN DIRECTORY>; make; nohup erl 
+    -noshell -run philosopher main <NodeName> <Whateverothernodes>" &
+
+
+    All the output that would have popped up on that remote shell will pop
+    up on your current shell. WHICH IS HORRIBLE if you start many many nodes
+    from that one computer (hard to read and stuff).
+
+    Also note that if you kill this ssh process, the philosopher is still
+    running on that remote computer.
+
+    OPEN MULTIPLE SHELLS.
+
+
+
+Thank you for taking time to read out tutorial.
+
+
+
+
+Sincerely,
+    Jesse and David
+
+Geoff Kuenning:"There is no such thing as a file without a new line at the end"
+    

@@ -1,0 +1,223 @@
+Author: Jesse Berlin Watts-Russell and David Scott
+Date: March 3, 2014
+Distributed Systems, Homework 4
+
+
+C'mon dude. Before even thinking about looking at this, read the tutorial. Also
+note that we did do the EXTRA CREDIT, it does work, and give us our extra 
+points :).
+
+So, some of these lines will be over 80 spaces because I want to show it how it
+appears in the shell. It just looks better.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                           A Single Philosopher                              %
+%                  (Who has a hard time getting the ladies)                   %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+So make everything as I specified in tutorial.txt, go into the ebin directory
+and run:
+
+    % erl -noshell -run philosopher main p1
+    2014-03-09 20:10:21.312412: Initializing The Philosopher p1@phlox.
+    2014-03-09 20:10:21.336089: [NODE: p1@phlox, STATE: joining] Trying to connect to all specified nodes.
+    2014-03-09 20:10:21.340545: [NODE: p1@phlox, STATE: joining] There were no nodes, transitioning to thinking.
+
+
+And if you open up my controller as I specified in tutorial.txt, you can run
+some stuff like
+
+    Eshell V5.10.4  (abort with ^G)
+    1> controller:start().
+    {ok,<0.42.0>}
+    (s6pe9kH2kr@olympia)2> controller:get_state(p1@phlox).
+    thinking
+    (s6pe9kH2kr@olympia)3> controller:get_neighbors(p1@phlox).
+    []
+
+Which is pretty consistent with what we think would happen. We can tell him to
+become hungry, stop_eating, leave, etc.
+
+    (s6pe9kH2kr@olympia)5> controller:become_hungry(p1@phlox).
+    ok
+    2014-03-09 20:14:21.758526: p1@phlox just started eating.
+
+    (s6pe9kH2kr@olympia)6> controller:stop_eating(p1@phlox).
+    ok
+
+    (s6pe9kH2kr@olympia)7> controller:leave(p1@phlox).
+    ok
+    2014-03-09 20:16:41.222972: p1@phlox is gone from the table.
+
+
+
+    (Note that the beauty of the controller is that it is easy to use and
+    catches the return messages).
+
+
+All the while, our philosopher p1 is printing out some pretty useful info:
+
+    2014-03-09 20:14:21.745612: [NODE: p1@phlox, STATE: thinking] I've been told to become hungry by <5312.42.0>.
+    2014-03-09 20:14:21.759338: [NODE: p1@phlox, STATE: hungry] I have all my forks, so I can just transition to eating.
+    2014-03-09 20:15:31.941646: [NODE: p1@phlox, STATE: eating] I've been told to stop eating by <5312.32.0>, so I'll satisfy all my queue requests then transition to thinking.
+    2014-03-09 20:16:41.223603: [NODE: p1@phlox, STATE: thinking] I've been told to leave by <5312.42.0>, and I don't have any neighbors, so I'm just gonna go.
+
+
+Now, if we commanded something that wouldn't work in that philosophers state...
+(Say the philosopher is currently eating, so we cant tell it to become hungry
+again)
+
+    (s6pe9kH2kr@olympia)9> controller:become_hungry(p1@phlox).
+    ok
+    2014-03-09 20:19:59.1662: p1@phlox was in [STATE: eating] and thus was not in the correct state to become_hungry.
+
+    While our philosopher says:
+    2014-03-09 20:19:59.2529: [NODE: p1@phlox, STATE: eating] I am not currently in the right state to become_hungry.
+
+Pretty cool, huh? But thats only the beginning.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                             A Trio of Philosophers                          %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+So let's start up 3 philosophers (we'll do more later) and I'll show how they
+all work and print out stuff during all times of joining.
+
+
+We'll start by with just connecting while all philosophers are thinking.
+
+  These are ordered in how actions occur:
+
+  Philosopher 1:
+    % erl -noshell -run philosopher main p1
+    2014-03-09 22:52:50.682935: Initializing The Philosopher p1@heath.
+    2014-03-09 22:52:50.706524: [NODE: p1@heath, STATE: joining] Trying to connect to all specified nodes.
+    2014-03-09 22:52:50.711472: [NODE: p1@heath, STATE: joining] There were no nodes, transitioning to thinking.
+
+  Philosopher 2:
+    % erl -noshell -run philosopher main p2 p1@heath
+    2014-03-09 22:53:36.933454: Initializing The Philosopher p2@ash.
+    2014-03-09 22:53:36.956799: [NODE: p2@ash, STATE: joining] Trying to connect to all specified nodes.
+    2014-03-09 22:53:36.961401: [NODE: p2@ash, STATE: joining] Sending requests to specified nodes.
+  
+  Philosopher 1:
+    2014-03-09 22:53:37.19807: [NODE: p1@heath, STATE: thinking] Got a edge request, immediately connecting to new node p2@ash.
+
+  Philosopher 2:
+    2014-03-09 22:53:37.34511: [NODE: p2@ash, STATE: joining] Received edge confirmation from p1@heath.
+    2014-03-09 22:53:37.42149: [NODE: p2@ash, STATE: joining] Received all edge confirmations, transitioning to thinking.
+
+  Philosopher 3:
+    % erl -noshell -run philosopher main p3 p2@ash p1@heath
+    2014-03-09 23:04:39.311811: Initializing The Philosopher p3@fleabane.
+    2014-03-09 23:04:39.335989: [NODE: p3@fleabane, STATE: joining] Trying to connect to all specified nodes.
+    2014-03-09 23:04:39.340908: [NODE: p3@fleabane, STATE: joining] Sending requests to specified nodes.
+
+  Philosopher 1:
+    2014-03-09 23:04:39.384490: [NODE: p1@heath, STATE: thinking] Got a edge request, immediately connecting to new node p3@fleabane.
+
+  Philosopher 2:
+    2014-03-09 23:04:39.390266: [NODE: p2@ash, STATE: thinking] Got a edge request, immediately connecting to new node p3@fleabane.
+
+  Philosopher 3:
+    2014-03-09 23:04:39.381576: [NODE: p3@fleabane, STATE: joining] Received edge confirmation from p2@ash.
+    2014-03-09 23:04:39.388870: [NODE: p3@fleabane, STATE: joining] Received edge confirmation from p1@heath.
+    2014-03-09 23:04:39.389021: [NODE: p3@fleabane, STATE: joining] Received all edge confirmations, transitioning to thinking.
+
+and now all our philosophers are interconnected. Let's make Philosopher 1
+hungry now (he will request all his forks and then become eating), and have
+Philosopher 2 also become hungry, where he will have to wait.
+
+  > controller:become_hungry(p1@heath).
+  ...
+
+  Philosopher 1:
+    2014-03-09 23:07:59.936114: [NODE: p1@heath, STATE: hungry] Sending out requests for forks.
+    2014-03-09 23:07:59.936996: [NODE: p1@heath, STATE: hungry] Received a fork from p2@ash. Waiting for the rest of them.
+    2014-03-09 23:07:59.937409: [NODE: p1@heath, STATE: hungry] Received a fork from p3@fleabane. Now I have all of them so I'm gonna transition to eating.
+
+  Philosopher 2:
+    2014-03-09 23:07:59.942736: [NODE: p2@ash, STATE: thinking] Got a fork request from p1@heath, granting the request.
+
+  Philosopher 3:
+    2014-03-09 23:07:59.934017: [NODE: p3@fleabane, STATE: thinking] Got a fork request from p1@heath, granting the request.
+
+
+  > controller:become_hungry(p2@ash).
+  ...
+
+  Philosopher 2:
+    2014-03-09 23:10:18.334819: [NODE: p2@ash, STATE: hungry] Sending out requests for forks.
+    2014-03-09 23:10:18.336144: [NODE: p2@ash, STATE: hungry] Received a fork from p3@fleabane. Waiting for the rest of them.
+  
+  Philosopher 1:
+    2014-03-09 23:10:18.328962: [NODE: p1@heath, STATE: eating] Got a fork request from p2@ash, but I'm eating, so queing that request up.
+
+  Philosopher 3:
+    2014-03-09 23:10:18.326730: [NODE: p3@fleabane, STATE: thinking] Got a fork request from p2@ash, granting the request.
+
+
+Obviously it is waiting. Now, let's tell Philosopher 1 to leave the table.
+In our algorithm, a philosopher needs all his forks to leave the table, so
+when a hungry/thinking philosopher becomes leaving, it makes sure to send
+out requests for its forks. But, when it is eating, it has all its forks so
+it can just leave.
+
+  > controller:leave(p1@heath).
+
+  Philosopher 1:
+    2014-03-09 23:16:15.350576: [NODE: p1@heath, STATE: eating] I've been told to leave by <5431.42.0>, so I'll satisfy all my edge queue requests then transition to leaving.
+    2014-03-09 23:16:15.350761: [NODE: p1@heath, STATE: leaving] I've got all my forks so I'm gone.
+
+  Philosopher 2:
+    2014-03-09 23:16:15.357682: [NODE: p2@ash, STATE: hungry] p1@heath just left, so I'm removing him from my neighbors. But with him gone, I have all my forks so I'm gonna transition to eating.
+
+  Philosopher 3:
+    2014-03-09 23:16:15.349535: [NODE: p3@fleabane, STATE: thinking] p1@heath just left, so I'm removing him from my neighbors.
+
+
+Now... if we had KILLED Philosopher 1, it still would have worked.
+
+  ^C
+  ...
+
+  Philosopher 1:
+    derp. (just kidding it just goes back to the shell)
+
+  Philosopher 2:
+    2014-03-09 23:19:21.662551: [NODE: p2@ash, STATE: hungry] Holy poop. p1@heath just died. I'm cleaning up right now by just removing him from my neighbors and my Fork Queue.
+    2014-03-09 23:19:21.662809: [NODE: p2@ash, STATE: hungry] Well after p1@heath just died it seems I have all my forks to eat. So entering eating state.
+
+  Philosopher 3:
+    2014-03-09 23:19:21.655108: [NODE: p3@fleabane, STATE: thinking] Holy poop. p1@heath just died. I'm cleaning up right now by just removing him from my neighbors.
+
+
+
+Remember how I said leaving was just like hungry, except you transition to
+gone instead of eating? Well, let's say Philosopher 2 was leaving instead
+of hungry.
+
+  ^C
+  ...
+
+  Philosopher 1:
+    derp.
+
+  Philosopher 2;
+    2014-03-09 23:26:22.148930: [NODE: p2@ash, STATE: leaving] Holy poop. p1@heath just died. I'm cleaning up right now by just removing him from my neighbors.
+    2014-03-09 23:26:22.149181: [NODE: p2@ash, STATE: leaving] Well after p1@heath just died it seems I have all my forks to leave. So entering gone state.
+
+  Philosopher 3:
+    2014-03-09 23:35:17.661169: [NODE: p3@fleabane, STATE: thinking] Holy poop. p1@heath just died. I'm cleaning up right now by just removing him from my neighbors.
+    2014-03-09 23:35:17.661546: [NODE: p3@fleabane, STATE: thinking] p2@ash just left, so I'm removing him from my neighbors.
+
+
+
+Now, I could literally go through every.single.situation. Possible, but then
+this text file would be like 10 pages long. Go try stuff yourself. But, I've
+attached a picture file that kinda shows how multiple philosophers interact.
+
+#use iTerm
+
